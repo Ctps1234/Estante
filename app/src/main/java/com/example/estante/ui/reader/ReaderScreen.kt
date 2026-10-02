@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -56,6 +57,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -319,7 +321,11 @@ fun ReaderScreen(
                         vm = vm,
                         onDismiss = { showBookmarks = false },
                         onJump = { page ->
-                            scope.launch { pagerState.scrollToPage(page) }
+                            scope.launch {
+                                // Protege contra marcadores de um arquivo que
+                                // encolheu (livro substituído com menos páginas).
+                                pagerState.scrollToPage(page.coerceIn(0, pageCount - 1))
+                            }
                         }
                     )
                 }
@@ -534,7 +540,19 @@ private fun BookmarksSheet(
     onDismiss: () -> Unit,
     onJump: (Int) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    // Salta para a página do marcador e só então fecha a folha, para que o
+    // usuário veja a página de destino já posicionada atrás da animação.
+    val jumpToPage: (Int) -> Unit = { page ->
+        onJump(page)
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) onDismiss()
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 20.dp)
@@ -569,6 +587,11 @@ private fun BookmarksSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // O .clickable vem antes do .padding para que a
+                                // área tocável (e o ripple) cubram a linha toda.
+                                .clickable(
+                                    onClickLabel = "Ir para a página ${bookmark.pageIndex + 1}"
+                                ) { jumpToPage(bookmark.pageIndex) }
                                 .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
