@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.Estante" parent="android:Theme.Material.NoActionBar" />
+</resources>
