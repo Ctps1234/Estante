@@ -46,17 +46,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       # Cache das dependências do Gradle — os builds seguintes ficam bem mais rápidos
       - name: Configurar Gradle (com cache)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # Se os secrets de assinatura existirem, cria keystore.properties + .jks na
       # raiz. O app/build.gradle.kts detecta o arquivo e assina o release com a
@@ -94,7 +94,7 @@ jobs:
           ls -lh Estante-*.apk
 
       - name: Publicar APKs como artefato do workflow
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Estante-APK
           path: Estante-*.apk
@@ -105,7 +105,7 @@ jobs:
       # com os dois APKs anexados.
       - name: Criar GitHub Release com os APKs
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: Estante-*.apk
           fail_on_unmatched_files: true
