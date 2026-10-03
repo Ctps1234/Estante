@@ -52,7 +52,39 @@ Pronto — o app instala e abre na sua estante.
 ### Gerando o APK manualmente (opcional)
 
 - APK de teste (debug): `./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
-- APK assinado para distribuição: **Build ▸ Generate Signed Bundle / APK…** no Android Studio
+- APK de distribuição: `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`
+  (assinado com a sua chave se houver um `keystore.properties` na raiz — ver abaixo;
+  senão sai assinado com a chave de debug, instalável para testes)
+- Pelo Android Studio: **Build ▸ Generate Signed Bundle / APK…**
+
+### Gerando o APK pelo GitHub Actions (CI)
+
+O repositório já vem com o workflow **“Build APK”** (`.github/workflows/build-apk.yml`):
+
+- **Push/PR na `main`** → compila os dois APKs e os publica como **artefato**
+  (*Actions* ▸ *Build APK* ▸ execução ▸ artefato `Estante-APK`).
+- **Tag `v*`** (ex.: `git tag v1.0 && git push origin v1.0`) → além do artefato,
+  cria um **GitHub Release** com os APKs anexados.
+- Também roda sob demanda: *Actions* ▸ *Build APK* ▸ *Run workflow*.
+
+| APK gerado | Uso |
+|---|---|
+| `Estante-vX.Y-debug.apk` | Teste/desenvolvimento |
+| `Estante-vX.Y-release.apk` | Distribuição — assinado com sua chave se os secrets estiverem configurados; senão, com a chave de debug |
+
+**Assinatura de release (opcional):** gere sua chave no Android Studio
+(*Build ▸ Generate Signed Bundle/APK… ▸ Create new…*), exporte como base64
+(`base64 -w0 chave.jks`) e cadastre os secrets do repositório:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` e
+`ANDROID_KEY_PASSWORD`. O CI detecta e usa automaticamente. Localmente, basta
+criar um `keystore.properties` na raiz do projeto (já ignorado pelo git):
+
+```properties
+storeFile=caminho/para/chave.jks
+storePassword=suaSenha
+keyAlias=seuAlias
+keyPassword=suaSenhaDaChave
+```
 
 ---
 

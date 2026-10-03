@@ -1,9 +1,30 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+}
+
+// ─── Assinatura de release (opcional) ────────────────────────────────────────
+// Se existir um `keystore.properties` na raiz do projeto (já ignorado pelo git),
+// o APK de release é assinado com essa chave (distribuição / Play Store).
+// Sem o arquivo — caso comum em desenvolvimento e no CI sem secrets — o release
+// é assinado com a chave de debug, para que o APK continue instalável.
+//
+// Formato esperado do keystore.properties:
+//   storeFile=caminho/para/chave.jks
+//   storePassword=•••
+//   keyAlias=•••
+//   keyPassword=•••
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
 }
 
 android {
@@ -18,6 +39,17 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -25,6 +57,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                // Sem keystore de release configurado: usa a chave de debug
+                // para que o APK continue instalável (testes / CI).
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
