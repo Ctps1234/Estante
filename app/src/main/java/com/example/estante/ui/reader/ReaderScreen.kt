@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -81,9 +84,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.estante.data.ReadingMode
+import com.example.estante.pdf.PdfToc
+import com.example.estante.pdf.TocEntry
+import com.example.estante.pdf.TocSource
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -111,6 +118,7 @@ fun ReaderScreen(
     var chromeVisible by remember { mutableStateOf(true) }
     var showSettings by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
+    var showToc by remember { mutableStateOf(false) }
 
     val backgroundColor = when (vm.readingMode) {
         ReadingMode.LIGHT -> Color(0xFFDADADA)
@@ -213,7 +221,15 @@ fun ReaderScreen(
                                 if (target < pageCount) pagerState.animateScrollToPage(target)
                             }
                         },
-                        onToggleChrome = { chromeVisible = !chromeVisible }
+                        onToggleChrome = { chromeVisible = !chromeVisible },
+                        onTocJump = { entry ->
+                            scope.launch {
+                                pagerState.scrollToPage(entry.targetIndex)
+                                snackbarHostState.showSnackbar(
+                                    "${entry.title.take(48)} · pág. ${entry.targetIndex + 1}"
+                                )
+                            }
+                        }
                     )
                 }
 
@@ -241,6 +257,9 @@ fun ReaderScreen(
                             }
                         },
                         actions = {
+                            IconButton(onClick = { showToc = true }) {
+                                Icon(Icons.Filled.MenuBook, contentDescription = "Sumário")
+                            }
                             IconButton(onClick = {
                                 vm.addBookmark()
                                 scope.launch {
@@ -323,6 +342,16 @@ fun ReaderScreen(
                         }
                     )
                 }
+                if (showToc) {
+                    TocSheet(
+                        vm = vm,
+                        currentPage = pagerState.currentPage,
+                        onDismiss = { showToc = false },
+                        onJump = { page ->
+                            scope.launch { pagerState.scrollToPage(page) }
+                        }
+                    )
+                }
             }
         }
     }
@@ -345,9 +374,14 @@ private fun PdfPageContainer(
     onPanChange: (Offset) -> Unit,
     onTapPrevious: () -> Unit,
     onTapNext: () -> Unit,
-    onToggleChrome: () -> Unit
+    onToggleChrome: () -> Unit,
+    onTocJump: (TocEntry) -> Unit
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    // Proporção (altura/largura) da página renderizada — para converter o
+    // toque da tela em coordenadas normalizadas da página.
+    var pageAspect by remember { mutableFloatStateOf(1.44f) }
+    var pageLoaded by remember { mutableStateOf(false) }
 
     val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
         val newZoom = (zoom * zoomChange).coerceIn(1f, 6f)
@@ -373,11 +407,30 @@ private fun PdfPageContainer(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { offset ->
-                        val width = containerSize.width.coerceAtLeast(1)
-                        when {
-                            offset.x < width * 0.3f -> onTapPrevious()
-                            offset.x > width * 0.7f -> onTapNext()
-                            else -> onToggleChrome()
+                        // Primeiro tenta uma entrada do sumário na página atual
+                        // (toque direto na linha do capítulo).
+                        val tocEntry = if (pageLoaded) {
+                            hitTestTocEntry(
+                                toc = vm.toc,
+                                pageIndex = index,
+                                tap = offset,
+                                container = containerSize,
+                                pageAspect = pageAspect,
+                                zoom = zoom,
+                                pan = panOffset
+                            )
+                        } else {
+                            null
+                        }
+                        if (tocEntry != null) {
+                            onTocJump(tocEntry)
+                        } else {
+                            val width = containerSize.width.coerceAtLeast(1)
+                            when {
+                                offset.x < width * 0.3f -> onTapPrevious()
+                                offset.x > width * 0.7f -> onTapNext()
+                                else -> onToggleChrome()
+                            }
                         }
                     }
                 )
@@ -392,6 +445,12 @@ private fun PdfPageContainer(
             vm = vm,
             index = index,
             colorFilter = colorFilter,
+            onBitmapSize = { width, height ->
+                if (width > 0 && height > 0) {
+                    pageAspect = height.toFloat() / width.toFloat()
+                    pageLoaded = true
+                }
+            },
             modifier = Modifier
                 .align(Alignment.Center)
                 .clipToBounds()
@@ -410,7 +469,8 @@ private fun PdfPageView(
     vm: ReaderViewModel,
     index: Int,
     colorFilter: ColorFilter?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBitmapSize: ((width: Int, height: Int) -> Unit)? = null
 ) {
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
@@ -422,6 +482,9 @@ private fun PdfPageView(
         }
         val current = bitmap
         if (current != null) {
+            LaunchedEffect(current) {
+                onBitmapSize?.invoke(current.width, current.height)
+            }
             Image(
                 bitmap = current.asImageBitmap(),
                 contentDescription = "Página ${index + 1}",
@@ -600,6 +663,137 @@ private fun BookmarksSheet(
             }
         }
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Sumário                                                             */
+/* ------------------------------------------------------------------ */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TocSheet(
+    vm: ReaderViewModel,
+    currentPage: Int,
+    onDismiss: () -> Unit,
+    onJump: (Int) -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Text("Sumário", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = when (vm.toc?.source) {
+                    TocSource.OUTLINE -> "Marcadores do PDF"
+                    else -> "Capítulos detectados no índice do livro"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+
+            val toc = vm.toc
+            when {
+                toc == null && vm.tocLoading -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 20.dp)
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.size(12.dp))
+                        Text("Procurando sumário…")
+                    }
+                }
+                toc == null || toc.entries.isEmpty() -> {
+                    Text(
+                        text = "Nenhum sumário encontrado neste PDF.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                }
+                else -> {
+                    val entries = toc.entries
+                    LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                        itemsIndexed(entries, key = { i, e -> "$i-${e.targetIndex}" }) { i, entry ->
+                            val isCurrent = entry.targetIndex <= currentPage &&
+                                (i == entries.lastIndex || entries[i + 1].targetIndex > currentPage)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onDismiss()
+                                        onJump(entry.targetIndex)
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = entry.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isCurrent) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 12.dp)
+                                )
+                                Text(
+                                    text = "pág. ${entry.targetIndex + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Converte o toque na tela em coordenadas normalizadas (0..1) da página e
+ * devolve a entrada do sumário atingida, se houver.
+ *
+ * A página é desenhada com a largura do container, centralizada verticalmente
+ * e escalada por zoom/pan em torno do centro (graphicsLayer).
+ */
+private fun hitTestTocEntry(
+    toc: PdfToc?,
+    pageIndex: Int,
+    tap: Offset,
+    container: IntSize,
+    pageAspect: Float,
+    zoom: Float,
+    pan: Offset
+): TocEntry? {
+    if (toc == null || container.width <= 0 || container.height <= 0) return null
+    if (zoom <= 0f) return null
+    val displayWidth = container.width.toFloat()
+    val displayHeight = displayWidth * pageAspect
+    if (displayWidth <= 0f || displayHeight <= 0f) return null
+
+    // Desfaz o zoom/pan (que escala em torno do centro do container).
+    val centerX = displayWidth / 2f
+    val centerY = container.height / 2f
+    val px = ((tap.x - centerX) - pan.x) / zoom + centerX
+    val py = ((tap.y - centerY) - pan.y) / zoom + centerY
+
+    // Retângulo exibido da página: largura total, centralizado na vertical.
+    val top = (container.height - displayHeight) / 2f
+    val u = px / displayWidth
+    val v = (py - top) / displayHeight
+    if (u < 0f || u > 1f || v < 0f || v > 1f) return null
+
+    return toc.entryAt(pageIndex, u, v)
 }
 
 /* ------------------------------------------------------------------ */

@@ -19,6 +19,7 @@ livros clássicos pelo catálogo do **Project Gutenberg**.
 | **Leitor PDF** | Página a página com gestos: deslize para virar, pinça para ampliar (até 6×), toque nas laterais para virar página, toque no centro para mostrar/ocultar controles |
 | **Progresso** | Página atual salva automaticamente — ao reabrir, continua de onde parou |
 | **Marcadores** | Marque qualquer página; liste, acesse e remova marcadores |
+| **Sumário** | Painel de capítulos (usa os marcadores do PDF ou detecta o índice do livro); no índice, **toque direto na linha do capítulo** para pular para a página |
 | **Modos de leitura** | Claro, Sépia e Noturno (inversão de cores para ler no escuro) |
 | **Brilho** | Controle de brilho dentro do leitor, sem sair do livro |
 | **Navegação** | Slider para saltar para qualquer página |
@@ -52,7 +53,39 @@ Pronto — o app instala e abre na sua estante.
 ### Gerando o APK manualmente (opcional)
 
 - APK de teste (debug): `./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
-- APK assinado para distribuição: **Build ▸ Generate Signed Bundle / APK…** no Android Studio
+- APK de distribuição: `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`
+  (assinado com a sua chave se houver um `keystore.properties` na raiz — ver abaixo;
+  senão sai assinado com a chave de debug, instalável para testes)
+- Pelo Android Studio: **Build ▸ Generate Signed Bundle / APK…**
+
+### Gerando o APK pelo GitHub Actions (CI)
+
+O repositório já vem com o workflow **“Build APK”** (`.github/workflows/build-apk.yml`):
+
+- **Push/PR na `main`** → compila os dois APKs e os publica como **artefato**
+  (*Actions* ▸ *Build APK* ▸ execução ▸ artefato `Estante-APK`).
+- **Tag `v*`** (ex.: `git tag v1.0 && git push origin v1.0`) → além do artefato,
+  cria um **GitHub Release** com os APKs anexados.
+- Também roda sob demanda: *Actions* ▸ *Build APK* ▸ *Run workflow*.
+
+| APK gerado | Uso |
+|---|---|
+| `Estante-vX.Y-debug.apk` | Teste/desenvolvimento |
+| `Estante-vX.Y-release.apk` | Distribuição — assinado com sua chave se os secrets estiverem configurados; senão, com a chave de debug |
+
+**Assinatura de release (opcional):** gere sua chave no Android Studio
+(*Build ▸ Generate Signed Bundle/APK… ▸ Create new…*), exporte como base64
+(`base64 -w0 chave.jks`) e cadastre os secrets do repositório:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` e
+`ANDROID_KEY_PASSWORD`. O CI detecta e usa automaticamente. Localmente, basta
+criar um `keystore.properties` na raiz do projeto (já ignorado pelo git):
+
+```properties
+storeFile=caminho/para/chave.jks
+storePassword=suaSenha
+keyAlias=seuAlias
+keyPassword=suaSenhaDaChave
+```
 
 ---
 
@@ -92,6 +125,7 @@ Estante/
 
 - **Kotlin** + **Jetpack Compose** (BOM 2024.09, Material 3)
 - **PdfRenderer** (API nativa do Android) — sem bibliotecas nativas extras
+- **PdfBox-Android** — extração do sumário (marcadores do PDF e texto do índice)
 - **Room** + **KSP** — livros e marcadores
 - **DataStore** — preferências (tema, modo de leitura)
 - **Navigation Compose**, **ViewModel** + **Flow**/coroutines
@@ -113,6 +147,7 @@ apaga tudo — os PDFs originais que você importou continuam onde estavam.
 - 🖲️ Toque no **centro** → mostra/oculta barras e controles
 - 🔍 **Dois dedos** → ampliar/arrastar (o swipe vira página novamente ao voltar ao zoom 1×)
 - 📑 Ícone de **marcador** (barra superior) → salva a página atual
+- 📖 Ícone de **livro aberto** (barra superior) → sumário do livro; se o PDF tiver marcadores, eles são usados; senão, o app detecta o índice pelas linhas "Título ..... página" e converte a numeração impressa em página real do arquivo. Em vez de abrir o painel, você também pode **tocar diretamente na linha do capítulo** na página do índice
 - 🎨 Ícone de **engrenagem** → modo Claro/Sépia/Noturno e brilho
 
 ## Problemas comuns

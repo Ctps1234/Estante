@@ -4,6 +4,7 @@ import android.app.Application
 import com.example.estante.data.BookRepository
 import com.example.estante.data.SettingsRepository
 import com.example.estante.data.db.AppDatabase
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 
 class EstanteApp : Application() {
 
@@ -16,6 +17,8 @@ class EstanteApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        // Necessário antes de qualquer uso da PdfBox (fontes internas dela).
+        PDFBoxResourceLoader.init(this)
     }
 
     companion object {
