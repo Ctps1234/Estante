@@ -38,6 +38,13 @@ class ReaderViewModel(
     var error by mutableStateOf<String?>(null)
         private set
 
+    /** Sumário do livro (outline do PDF ou páginas de índice), ou null. */
+    var toc by mutableStateOf<PdfToc?>(null)
+        private set
+    /** true enquanto o sumário está sendo analisado em segundo plano. */
+    var tocLoading by mutableStateOf(false)
+        private set
+
     var readingMode by mutableStateOf(ReadingMode.LIGHT)
         private set
 
@@ -79,6 +86,16 @@ class ReaderViewModel(
                 currentPage = book.currentPage.coerceIn(0, (newPdfBook.pageCount - 1).coerceAtLeast(0))
             } catch (e: Exception) {
                 error = "Não foi possível abrir este PDF (ele pode estar corrompido ou protegido por senha)."
+                return@withContext
+            }
+
+            // Sumário: análise em segundo plano (pode levar alguns segundos).
+            tocLoading = true
+            toc = null
+            val parsedToc = runCatching { PdfTocParser.parse(file) }.getOrNull()
+            withContext(Dispatchers.Main) {
+                toc = parsedToc
+                tocLoading = false
             }
         }
     }

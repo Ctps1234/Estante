@@ -19,6 +19,7 @@ livros clássicos pelo catálogo do **Project Gutenberg**.
 | **Leitor PDF** | Página a página com gestos: deslize para virar, pinça para ampliar (até 6×), toque nas laterais para virar página, toque no centro para mostrar/ocultar controles |
 | **Progresso** | Página atual salva automaticamente — ao reabrir, continua de onde parou |
 | **Marcadores** | Marque qualquer página; liste, acesse e remova marcadores |
+| **Sumário** | Painel de capítulos (usa os marcadores do PDF ou detecta o índice do livro); no índice, **toque direto na linha do capítulo** para pular para a página |
 | **Modos de leitura** | Claro, Sépia e Noturno (inversão de cores para ler no escuro) |
 | **Brilho** | Controle de brilho dentro do leitor, sem sair do livro |
 | **Navegação** | Slider para saltar para qualquer página |
@@ -124,6 +125,7 @@ Estante/
 
 - **Kotlin** + **Jetpack Compose** (BOM 2024.09, Material 3)
 - **PdfRenderer** (API nativa do Android) — sem bibliotecas nativas extras
+- **PdfBox-Android** — extração do sumário (marcadores do PDF e texto do índice)
 - **Room** + **KSP** — livros e marcadores
 - **DataStore** — preferências (tema, modo de leitura)
 - **Navigation Compose**, **ViewModel** + **Flow**/coroutines
@@ -145,6 +147,7 @@ apaga tudo — os PDFs originais que você importou continuam onde estavam.
 - 🖲️ Toque no **centro** → mostra/oculta barras e controles
 - 🔍 **Dois dedos** → ampliar/arrastar (o swipe vira página novamente ao voltar ao zoom 1×)
 - 📑 Ícone de **marcador** (barra superior) → salva a página atual
+- 📖 Ícone de **livro aberto** (barra superior) → sumário do livro; se o PDF tiver marcadores, eles são usados; senão, o app detecta o índice pelas linhas "Título ..... página" e converte a numeração impressa em página real do arquivo. Em vez de abrir o painel, você também pode **tocar diretamente na linha do capítulo** na página do índice
 - 🎨 Ícone de **engrenagem** → modo Claro/Sépia/Noturno e brilho
 
 ## Problemas comuns

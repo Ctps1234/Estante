@@ -82,8 +82,8 @@ jobs:
           echo "Keystore de release configurado."
 
       # O runner do GitHub já vem com o Android SDK (API 34 e build-tools inclusos)
-      - name: Compilar APKs
-        run: ./gradlew assembleDebug assembleRelease --stacktrace
+      - name: Compilar APKs e rodar testes
+        run: ./gradlew assembleDebug assembleRelease testDebugUnitTest --stacktrace
 
       - name: Renomear APKs com a versão
         run: |

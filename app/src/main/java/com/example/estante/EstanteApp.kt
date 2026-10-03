@@ -4,6 +4,7 @@ import android.app.Application
 import com.example.estante.data.BookRepository
 import com.example.estante.data.SettingsRepository
 import com.example.estante.data.db.AppDatabase
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 
 class EstanteApp : Application() {
 

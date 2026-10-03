@@ -116,6 +116,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
+    // PdfRenderer (API nativa) para renderizar; PdfBox para ler texto/outline
+    implementation(libs.pdfbox.android)
+
     // Testes
     testImplementation(libs.junit)
 
