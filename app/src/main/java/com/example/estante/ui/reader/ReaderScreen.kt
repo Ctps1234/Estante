@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import com.example.estante.data.ReadingMode
 import com.example.estante.pdf.PdfToc
 import com.example.estante.pdf.TocEntry
+import com.example.estante.pdf.TocSource
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date

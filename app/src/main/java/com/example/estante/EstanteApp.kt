@@ -17,6 +17,8 @@ class EstanteApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        // Necessário antes de qualquer uso da PdfBox (fontes internas dela).
+        PDFBoxResourceLoader.init(this)
     }
 
     companion object {

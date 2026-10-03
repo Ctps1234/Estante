@@ -14,6 +14,8 @@ import com.example.estante.data.SettingsRepository
 import com.example.estante.data.db.Book
 import com.example.estante.data.db.Bookmark
 import com.example.estante.pdf.PdfBook
+import com.example.estante.pdf.PdfToc
+import com.example.estante.pdf.PdfTocParser
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
