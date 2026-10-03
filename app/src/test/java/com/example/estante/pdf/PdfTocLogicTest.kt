@@ -175,8 +175,9 @@ class PdfTocLogicTest {
 
     @Test
     fun resolve_alvo_fora_do_livro_retorna_null() {
-        assertNull(resolveTocTarget(9, emptyMap(), null, 10))
-        assertNull(resolveTocTarget(99, emptyMap(), 3, 10))
+        assertNull(resolveTocTarget(11, emptyMap(), null, 10)) // índice 10 ≥ pageCount
+        assertNull(resolveTocTarget(0, emptyMap(), null, 10))  // índice -1 < 0
+        assertNull(resolveTocTarget(99, emptyMap(), 3, 10))    // índice 102 ≥ pageCount
     }
 
     /* ---------------- zonas de toque ---------------- */
