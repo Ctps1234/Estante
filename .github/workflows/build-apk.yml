@@ -82,8 +82,19 @@ jobs:
           echo "Keystore de release configurado."
 
       # O runner do GitHub já vem com o Android SDK (API 34 e build-tools inclusos)
+      # Em caso de erro, as linhas importantes do Gradle viram anotações do run
+      # (visíveis na aba Annotations e via API), facilitando o diagnóstico.
       - name: Compilar APKs e rodar testes
-        run: ./gradlew assembleDebug assembleRelease testDebugUnitTest --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug assembleRelease testDebugUnitTest --stacktrace 2>&1 | tee gradle-output.log || {
+            status=$?
+            grep -E "^e: |error: |FAILED|Execution failed for task|What went wrong|Caused by:" gradle-output.log \
+              | awk '!seen[$0]++' | head -20 | while IFS= read -r line; do
+                echo "::error::$(echo "$line" | cut -c1-220)"
+              done
+            exit $status
+          }
 
       - name: Renomear APKs com a versão
         run: |
